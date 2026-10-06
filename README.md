@@ -1,10 +1,98 @@
+<div align="center">
+
 # arc-cua
+
+**Tools for computer-use agents: a background macOS driver, and a decision-model action loop.**
+
+[arc-driver](#arc-driver) · [arc-cua](#arc-cua-the-decision-model-loop) · [Install](#install) · [Examples](#examples)
+
+</div>
+
+<br>
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+### 🛠️ arc-driver
+
+**A standalone macOS driver.** Your agent decides every action; arc-driver reads
+the app and acts on it in the background.
+
+- Works from Claude Code, Codex or any MCP client
+- No model, no API key
+- Pointer, front app and windows stay put
+
+**→ [docs/driver.md](https://github.com/shhivv/arc-cua/blob/master/docs/driver.md)**
+
+</td>
+<td width="50%" valign="top">
+
+### ⚡ arc-cua
+
+**A decision-model action loop.** Hand off a bounded subtask; a fast decision
+model clicks through it and reports back.
+
+- Called from your planner or agent
+- Needs a decision model (JEV, or your own)
+- Fewer frontier-model calls per task
+
+**→ [Read on below](#arc-cua-the-decision-model-loop)**
+
+</td>
+</tr>
+</table>
+
+> [!TIP]
+> **Here for the driver?** You need nothing below the arc-driver section. arc-driver
+> does not use decision models, JEV or TypeSafe.
+
+<br>
+
+## arc-driver
+
+arc-driver reads an app's window, runs its menu commands and acts on its controls in
+the background, so the user's pointer, front app and windows stay as they are. It
+checks each action against the app as it is when the action runs, waits for the app
+to finish reacting, and works in minimized windows and hidden apps.
+
+**MCP**, in Claude Code:
+
+```bash
+claude mcp add arc-cua -- uvx --from 'arc-cua[macos]' arc-cua mcp
+```
+
+**Python:**
+
+```python
+from arc_cua import Driver
+from arc_cua.backends import MacOSApp
+
+pid = MacOSApp.from_bundle_id("com.apple.calculator").pid
+with Driver() as driver:
+    snapshot = driver.observe(pid)
+    seven = next(e for e in snapshot.elements if e.name == "7")
+    driver.act(snapshot, "CLICK", seven.id, settle=True)
+```
+
+- 📖 **[Driver guide](https://github.com/shhivv/arc-cua/blob/master/docs/driver.md)**: setup for Codex and other clients, the MCP tools, measurements.
+- 📊 **[Benchmarks](https://github.com/shhivv/arc-cua/blob/master/benchmarks/README.md)**
+
+<br>
+
+---
+
+<div align="center">
+
+# arc-cua: the decision-model loop
 
 **Superfast action layer for computer-use agents, powered by decision models.**
 
-Ships with a lean macOS driver you can use on its own, without the rest of arc-cua: see [docs/driver.md](https://github.com/shhivv/arc-cua/blob/master/docs/driver.md).
+[Why](#why) · [How it works](#how-it-works) · [Command line](#command-line) · [Browser](#browser-chrome) · [Terminal states](#terminal-states) · [Install](#install)
 
----
+</div>
+
+<br>
 
 `arc-cua` lets a planner or CUA agent hand off bounded desktop subtasks to a fast decision model that executes the UI loop — no frontier model needed for every click.
 
@@ -23,24 +111,6 @@ result = execute_payload(executor, {
 ```
 
 Any GPT, Claude, Gemini, local model, or deterministic planner can generate that payload. The planner deliberately lives outside the package.
-
----
-
-## Two layers: use either
-
-- **A macOS driver.** It reads an app's window, runs its menu commands and acts on
-  its controls in the background, so the user's pointer, front app and windows
-  stay as they are. It checks each action against the app as it is when the action
-  runs, and works in minimized windows and hidden apps. Use it on its own, with no
-  decision model: from any MCP client with `arc-cua mcp`, or from Python with
-  `arc_cua.Driver`. See **[docs/driver.md](https://github.com/shhivv/arc-cua/blob/master/docs/driver.md)**.
-- **An action layer** on top of it: hand a bounded subtask to a fast decision
-  model, which runs the UI loop and returns when the subtask is done. The rest of
-  this README is about this layer.
-
-```bash
-claude mcp add arc-cua -- uvx --from 'arc-cua[macos]' arc-cua mcp   # the driver as MCP tools in Claude Code
-```
 
 ---
 
@@ -448,15 +518,11 @@ uses (operation, target, input, key, completion checks). `BLOCKED` and
 The desktop backends are macOS-only; the Chrome backend runs wherever Chrome does.
 
 ```bash
-pip install 'arc-cua[macos]'    # macOS desktop apps (the driver needs this extra)
+pip install 'arc-cua[macos]'    # macOS desktop apps
 pip install 'arc-cua[browser]'  # Chrome
 ```
 
-From a checkout: `pip install -e '.[macos]'`.
-
-To use only the driver, that is all: run `arc-cua mcp` from your MCP client, or
-use `arc_cua.Driver` (see [docs/driver.md](https://github.com/shhivv/arc-cua/blob/master/docs/driver.md)). For the action layer,
-set your TypeSafe key:
+From a checkout: `pip install -e '.[macos]'`. Then set your TypeSafe key for JEV:
 
 ```bash
 export TYPESAFE_API_KEY=...
@@ -472,13 +538,6 @@ The terminal/editor running Python needs both:
 Restart the terminal after granting permissions if necessary.
 
 ---
-
-## Benchmarks
-
-`benchmarks/` measures the driver on real apps and realistic multi-step workflows,
-and compares runs between versions: `python benchmarks/run.py all`, then
-`python benchmarks/run.py compare OLD.json NEW.json`. See
-[benchmarks/README.md](https://github.com/shhivv/arc-cua/blob/master/benchmarks/README.md).
 
 ## Examples
 

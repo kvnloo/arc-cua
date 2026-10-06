@@ -2,7 +2,7 @@
 
 > Superfast action layer for computer-use agents, powered by decision models.
 
-arc-cua has two layers. The driver (arc_cua.Driver, or `arc-cua mcp` for MCP clients) reads macOS apps' windows, runs their menu commands and acts on their controls in the background, and can be used on its own. On top of it, arc-cua lets a planner or CUA agent hand off bounded desktop subtasks to a fast decision model (JEV) that executes the UI loop. The planner owns intent (what to do, what text to use, what counts as success). The executor owns observation, fast decision-making, freshness checks, native UI execution, and bounded termination.
+This package ships two separate tools. arc-driver (arc_cua.Driver, or `arc-cua mcp` for MCP clients) is a standalone macOS driver: the caller's agent decides every action, and the driver reads apps' windows, runs their menu commands and acts on their controls in the background. It uses no decision model and needs no API key. Separately, arc-cua lets a planner or CUA agent hand off bounded desktop subtasks to a fast decision model (JEV) that executes the UI loop. The planner owns intent (what to do, what text to use, what counts as success). The executor owns observation, fast decision-making, freshness checks, native UI execution, and bounded termination.
 
 Source: https://github.com/shhivv/arc-cua
 

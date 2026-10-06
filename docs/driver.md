@@ -1,16 +1,15 @@
-# arc as a macOS driver
+# arc-driver
 
-arc-cua's lower layer is a driver for macOS apps: it reads an app's window, runs
-its menu commands and acts on its controls **in the background**. The user's
-pointer, front app and windows stay as they are while an agent works.
+arc-driver is a driver for macOS apps, for computer-use agents: it reads an app's
+window, runs its menu commands and acts on its controls **in the background**. The
+user's pointer, front app and windows stay as they are while an agent works.
 
-You can use the driver on its own, without arc-cua's decision-model action layer:
+It is standalone. Your agent decides every action; arc-driver uses no decision
+model, needs no API key, and is unrelated to arc-cua's decision-model loop, which
+ships in the same package. It installs as `arc-cua[macos]`:
 
 - **Over MCP**, from Claude Code, Codex or any MCP client: `arc-cua mcp`.
 - **From Python**: `arc_cua.Driver`.
-
-The action layer (`DesktopExecutor` with a decision model) is built on the same
-backends; see the [main README](../README.md) for it.
 
 ## Set up
 

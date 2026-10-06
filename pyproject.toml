@@ -1,7 +1,7 @@
 [project]
 name = "arc-cua"
 version = "0.1.1"
-description = "Superfast action layer for computer-use agents, powered by decision models, with a standalone macOS driver"
+description = "arc-driver, a standalone macOS driver for computer-use agents, and arc-cua, an action layer powered by decision models"
 readme = "README.md"
 requires-python = ">=3.12"
 license = {text = "MIT"}
