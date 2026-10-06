@@ -1,68 +1,30 @@
-<div align="center">
-
 # arc-cua
 
-**Tools for computer-use agents: a background macOS driver, and a decision-model action loop.**
+This repository ships two separate tools in one package:
 
-[arc-driver](#arc-driver) · [arc-cua](#arc-cua-the-decision-model-loop) · [Install](#install) · [Examples](#examples)
+| | **arc-driver** | **arc-cua** |
+|---|---|---|
+| What it is | A macOS driver for computer-use agents: your agent reads an app's window and acts on it, in the background | A decision-model action loop: hand off a bounded subtask, a fast decision model clicks through it |
+| Who decides each action | Your agent (Claude Code, Codex, any MCP client, or your own code) | A decision model (JEV, or your own provider) |
+| Needs a model or API key | No | Yes |
+| Use it via | `arc-cua mcp`, or `arc_cua.Driver` in Python | `execute_payload`, `DesktopExecutor`, or `arc-cua run` |
+| Docs | **[docs/driver.md](https://github.com/shhivv/arc-cua/blob/master/docs/driver.md)** | [this README, from here down](#arc-cua-the-decision-model-loop) |
 
-</div>
+**If you came for the driver, you need nothing below this section.** arc-driver does
+not use decision models, JEV or TypeSafe; it is a standalone driver.
 
-<br>
+---
 
-<table>
-<tr>
-<td width="50%" valign="top">
-
-### 🛠️ arc-driver
-
-**A standalone macOS driver.** Your agent decides every action; arc-driver reads
-the app and acts on it in the background.
-
-- Works from any MCP client
-- No model, no API key
-- Pointer, front app and windows stay put
-
-**→ [Driver guide](https://github.com/shhivv/arc-cua/blob/master/docs/driver.md)**
-
-</td>
-<td width="50%" valign="top">
-
-### ⚡ arc-cua
-
-**A decision-model action loop.** Hand off a bounded subtask; a fast decision
-model clicks through it and reports back.
-
-- Called from your planner or agent
-- Needs a decision model (JEV, or your own)
-- Fewer frontier-model calls per task
-
-**→ [arc-cua docs](#arc-cua-the-decision-model-loop)**
-
-</td>
-</tr>
-</table>
-
-> [!TIP]
-> **Here for the driver?** You need nothing below the arc-driver section. arc-driver
-> does not use decision models, JEV or TypeSafe.
-
-<br>
-
-## arc-driver
+## arc-driver: the macOS driver
 
 arc-driver reads an app's window, runs its menu commands and acts on its controls in
 the background, so the user's pointer, front app and windows stay as they are. It
 checks each action against the app as it is when the action runs, waits for the app
 to finish reacting, and works in minimized windows and hidden apps.
 
-**MCP**, in Claude Code:
-
 ```bash
-claude mcp add arc-cua -- uvx --from 'arc-cua[macos]' arc-cua mcp
+claude mcp add arc-cua -- uvx --from 'arc-cua[macos]' arc-cua mcp   # as MCP tools in Claude Code
 ```
-
-**Python:**
 
 ```python
 from arc_cua import Driver
@@ -75,24 +37,17 @@ with Driver() as driver:
     driver.act(snapshot, "CLICK", seven.id, settle=True)
 ```
 
-- 📖 **[Driver guide](https://github.com/shhivv/arc-cua/blob/master/docs/driver.md)**: setup for Codex and other clients, the MCP tools, measurements.
-- 📊 **[Benchmarks](https://github.com/shhivv/arc-cua/blob/master/benchmarks/README.md)**
-
-<br>
+Setup for Codex and other clients, the MCP tools, and measurements:
+**[docs/driver.md](https://github.com/shhivv/arc-cua/blob/master/docs/driver.md)**.
+Benchmarks: [benchmarks/README.md](https://github.com/shhivv/arc-cua/blob/master/benchmarks/README.md).
 
 ---
-
-<div align="center">
 
 # arc-cua: the decision-model loop
 
 **Superfast action layer for computer-use agents, powered by decision models.**
 
-[Why](#why) · [How it works](#how-it-works) · [Command line](#command-line) · [Browser](#browser-chrome) · [Terminal states](#terminal-states) · [Install](#install)
-
-</div>
-
-<br>
+Everything from here down is about arc-cua, not the driver.
 
 `arc-cua` lets a planner or CUA agent hand off bounded desktop subtasks to a fast decision model that executes the UI loop — no frontier model needed for every click.
 
