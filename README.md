@@ -19,11 +19,11 @@
 **A standalone macOS driver.** Your agent decides every action; arc-driver reads
 the app and acts on it in the background.
 
-- Works from Claude Code, Codex or any MCP client
+- Works from any MCP client
 - No model, no API key
 - Pointer, front app and windows stay put
 
-**→ [docs/driver.md](https://github.com/shhivv/arc-cua/blob/master/docs/driver.md)**
+**→ [Driver guide](https://github.com/shhivv/arc-cua/blob/master/docs/driver.md)**
 
 </td>
 <td width="50%" valign="top">
@@ -37,7 +37,7 @@ model clicks through it and reports back.
 - Needs a decision model (JEV, or your own)
 - Fewer frontier-model calls per task
 
-**→ [Read on below](#arc-cua-the-decision-model-loop)**
+**→ [arc-cua docs](#arc-cua-the-decision-model-loop)**
 
 </td>
 </tr>
