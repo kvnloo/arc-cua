@@ -4,7 +4,7 @@
     python examples/compare_providers.py --runs 3 [--headful]
 
 Providers run when their key is set in the environment or the repository's .env
-(TYPESAFE_API_KEY for JEV). Success is judged by an independent check of the
+(TYPESAFE_API_KEY for JEV, OPENAI_API_KEY for OpenAI Decisions). Success is judged by an independent check of the
 page, not by the model's completion claim.
 """
 
@@ -24,7 +24,7 @@ from typing import Callable
 
 from arc_cua import DesktopExecutor, Subtask, TerminalKind
 from arc_cua.backends import ChromeBackend
-from arc_cua.policies import TypeSafeJevPolicy
+from arc_cua.policies import ChoicePolicy, OpenAIDecisionsTransport, TypeSafeJevPolicy
 
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURES = ROOT / "tests" / "fixtures" / "browser"
@@ -86,6 +86,11 @@ def providers() -> dict[str, tuple[Callable[[], object], bool]]:
     found = {}
     if os.environ.get("TYPESAFE_API_KEY"):
         found["JEV (TypeSafe)"] = (TypeSafeJevPolicy, False)
+    if os.environ.get("OPENAI_API_KEY"):
+        found["OpenAI Decisions"] = (lambda: ChoicePolicy(OpenAIDecisionsTransport()), False)
+        found["OpenAI Decisions + screenshots"] = (
+            lambda: ChoicePolicy(OpenAIDecisionsTransport(), screenshot_steps=True), True,
+        )
     return found
 
 
@@ -94,7 +99,7 @@ def load_env() -> None:
     if not env.exists():
         return
     for line in env.read_text().splitlines():
-        match = re.match(r"\s*(?:export\s+)?(TYPESAFE_API_KEY)\s*=\s*['\"]?([^'\"\s]+)", line)
+        match = re.match(r"\s*(?:export\s+)?(TYPESAFE_API_KEY|OPENAI_API_KEY)\s*=\s*['\"]?([^'\"\s]+)", line)
         if match and not os.environ.get(match.group(1)):
             os.environ[match.group(1)] = match.group(2)
 
@@ -107,7 +112,7 @@ def main() -> None:
     load_env()
     available = providers()
     if not available:
-        raise SystemExit("Set TYPESAFE_API_KEY")
+        raise SystemExit("Set TYPESAFE_API_KEY or OPENAI_API_KEY")
 
     class Quiet(http.server.SimpleHTTPRequestHandler):
         def log_message(self, *_):

@@ -157,6 +157,19 @@ default 1), then raises `InvalidChoiceResponse` naming the question.
 
 See [the extension guide](https://github.com/shhivv/arc-cua/blob/master/site/llms-full.txt) for the request and answer shapes.
 
+**OpenAI Decisions.** `OpenAIDecisionsTransport` sends the same questions to
+OpenAI's [Decisions API](https://developers.openai.com/api/docs/guides/decisions)
+(`gpt-6-luna`). It reads `OPENAI_API_KEY` and accepts screenshots, so
+`screenshot_checks=True` and `screenshot_steps=True` work with it:
+
+```python
+from arc_cua.policies import ChoicePolicy, OpenAIDecisionsTransport
+
+policy = ChoicePolicy(OpenAIDecisionsTransport())
+```
+
+A refused question executes nothing when the decision needs it, and is ignored otherwise.
+
 ### The agent owns intent
 
 The upstream agent decides what needs to happen, what literal text may be used, what must not happen, and what counts as success. JEV chooses which element to target and which operation to perform — but never invents arbitrary text. Literal values always originate from the agent via `inputs`.
@@ -334,7 +347,7 @@ JSON object from standard input:
 |---|---|
 | `app` | `{"pid": ...}`, or `{"bundle_id": "com.apple.TextEdit"}` for the first running instance (required) |
 | `subtask` | The subtask, with the fields in [JSON field types](#json-field-types) (required) |
-| `provider` | `name` (`"jev"`), `api_key`, and optionally `model` (required) |
+| `provider` | `name` (`"jev"` or `"openai"`), `api_key`, and optionally `model` (required). `api_key` falls back to `TYPESAFE_API_KEY` or `OPENAI_API_KEY` |
 | `backend` | `"hybrid"` (AX, with OCR when accessibility exposes no app controls; the default) or `"ax"` |
 | `timeout_s`, `min_confidence`, `min_margin` | As in `RuntimeConfig` |
 | `dry_run` | `true` to decide and validate the next action, then stop with `DRY_RUN` without acting |

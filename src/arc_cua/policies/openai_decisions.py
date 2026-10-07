@@ -19,9 +19,6 @@ class OpenAIDecisionsTransport:
 
     name = "OpenAI Decisions"
     supports_images = True
-    # Answers may carry only the chosen answer and its confidence; full
-    # distributions are validated when present.
-    full_distribution = False
 
     def __init__(
         self,
@@ -46,8 +43,25 @@ class OpenAIDecisionsTransport:
         *,
         images: Sequence[bytes] = (),
     ) -> Mapping[str, Any]:
-        response = self._post(_request_body(self.model, state, questions, images))
-        return {"answers": _answers(response), "model": response.get("model"), "usage": response.get("usage")}
+        # The API needs at least two choices per question; a single option is
+        # the only possible answer, so it is answered here.
+        forced = {
+            name: {"choice": only, "confidence": 1.0, "probabilities": {only: 1.0}}
+            for name, question in questions.items()
+            if len(question["criteria"]) == 1
+            for only in question["criteria"]
+        }
+        asked = {name: question for name, question in questions.items() if name not in forced}
+        if not asked:
+            return {"answers": forced}
+        response = self._post(_request_body(self.model, state, asked, images))
+        answers, refused = _answers(response)
+        return {
+            "answers": {**answers, **forced},
+            "refused": refused,
+            "model": response.get("model"),
+            "usage": response.get("usage"),
+        }
 
     def _post(self, body: Mapping[str, Any]) -> Mapping[str, Any]:
         for attempt in range(3):
@@ -90,11 +104,12 @@ def _request_body(
         "input": [{"role": "user", "content": content}],
         "questions": [
             {
-                "id": name,
+                "type": "choice",
+                "name": name,
                 "instructions": json.dumps(question.get("instructions", {}), ensure_ascii=False),
-                "answers": [
-                    {"id": answer_id, "description": _text(description)}
-                    for answer_id, description in question["criteria"].items()
+                "choices": [
+                    {"value": value, "description": _text(description)}
+                    for value, description in question["criteria"].items()
                 ],
             }
             for name, question in questions.items()
@@ -102,14 +117,25 @@ def _request_body(
     }
 
 
-def _answers(response: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
+def _answers(response: Mapping[str, Any]) -> tuple[dict[str, dict[str, Any]], list[str]]:
     answers: dict[str, dict[str, Any]] = {}
-    for decision in response.get("decisions", []):
-        answer: dict[str, Any] = {"choice": decision.get("answer"), "confidence": decision.get("confidence")}
-        if decision.get("probabilities") is not None:
-            answer["probabilities"] = decision["probabilities"]
-        answers[decision.get("question_id")] = answer
-    return answers
+    refused: list[str] = []
+    for answer in response.get("answers", []):
+        if answer.get("type") == "refusal":
+            refused.append(answer.get("name"))
+            continue
+        if answer.get("type") != "choice":
+            continue
+        probabilities = answer.get("probabilities")
+        answers[answer.get("name")] = {
+            "choice": answer.get("choice"),
+            "confidence": answer.get("confidence"),
+            "probabilities": (
+                {item.get("value"): item.get("probability") for item in probabilities}
+                if isinstance(probabilities, list) else probabilities
+            ),
+        }
+    return answers, refused
 
 
 def _text(value: Any) -> str:

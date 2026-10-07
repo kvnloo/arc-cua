@@ -38,9 +38,16 @@ def _jev_policy(api_key: str | None, model: str | None) -> DecisionPolicy:
     return TypeSafeJevPolicy(api_key=api_key, model=model)
 
 
+def _openai_policy(api_key: str | None, model: str | None) -> DecisionPolicy:
+    from .policies import ChoicePolicy, OpenAIDecisionsTransport
+
+    return ChoicePolicy(OpenAIDecisionsTransport(api_key=api_key, model=model))
+
+
 # Decision providers by name: (api_key, model) -> policy.
 PROVIDERS: dict[str, Callable[[str | None, str | None], DecisionPolicy]] = {
     "jev": _jev_policy,
+    "openai": _openai_policy,
 }
 
 

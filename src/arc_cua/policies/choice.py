@@ -104,7 +104,9 @@ class ChoiceTransport(Protocol):
     `{"type": "choice", "criteria": {id: description}, "instructions": {...}}`.
     It returns a mapping whose `answers` maps question names to
     `{"choice", "confidence", "probabilities"}`; any other keys are kept in
-    `Decision.raw`. A failed request raises and no action is executed.
+    `Decision.raw`. Questions the provider refused to answer may be listed
+    under `refused`; a decision that needs one of them executes nothing.
+    A failed request raises and no action is executed.
     A transport whose provider reports only the choice and its confidence sets
     `full_distribution = False`; its answers may omit `probabilities`, and
     decisions using them report no margin.
@@ -205,7 +207,13 @@ class ChoicePolicy:
         used: list[float] = []
         margins: list[float] = []
 
+        refused = set(result.get("refused", ()))
+
         def pick(name: str, ids: Mapping[str, Any] | set[str]) -> Mapping[str, Any]:
+            if name in refused and name not in answers:
+                raise InvalidChoiceResponse(
+                    f"{self.transport.name} refused question {name}; no action executed"
+                )
             try:
                 answer = self._validate_choice(answers.get(name, {}), set(ids))
             except InvalidChoiceResponse as exc:

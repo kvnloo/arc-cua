@@ -582,7 +582,7 @@ app and exits. Standard input: one JSON object.
 |---|---|
 | app | {"pid": int} or {"bundle_id": str} (required) |
 | subtask | Subtask JSON as for subtask_from_dict (required) |
-| provider | {"name": "jev", "api_key": str, "model": str (optional)} (required); api_key falls back to TYPESAFE_API_KEY |
+| provider | {"name": "jev" or "openai", "api_key": str, "model": str (optional)} (required); api_key falls back to TYPESAFE_API_KEY (jev) or OPENAI_API_KEY (openai) |
 | backend | "hybrid" (default; OCR only when accessibility exposes no app controls) or "ax" |
 | timeout_s, min_confidence, min_margin | RuntimeConfig fields |
 | dry_run | true: stop with DRY_RUN and planned_action instead of acting |
@@ -897,6 +897,23 @@ class MyPolicy:
         #   Decision(kind=ActionKind.CLICK, target_id="element_id")
         #   Decision(terminal=TerminalKind.SUBTASK_COMPLETE)
         ...
+```
+
+### OpenAI Decisions
+
+OpenAIDecisionsTransport sends ChoicePolicy's questions to OpenAI's Decisions API
+(POST https://api.openai.com/v1/decisions, model gpt-6-luna). It reads
+OPENAI_API_KEY (or api_key=...); OPENAI_DECISIONS_MODEL and OPENAI_DECISIONS_URL
+override the model and endpoint. It accepts screenshots, so screenshot_checks and
+screenshot_steps work. Answers carry full probabilities and are validated like
+JEV's. A refused question that the decision needs raises InvalidChoiceResponse
+(retried per invalid_retries) and executes nothing; refusals of unused questions
+are ignored and listed in Decision.raw["refused"].
+
+```python
+from arc_cua.policies import ChoicePolicy, OpenAIDecisionsTransport
+
+policy = ChoicePolicy(OpenAIDecisionsTransport(), screenshot_steps=True)
 ```
 
 ### Custom decision provider
