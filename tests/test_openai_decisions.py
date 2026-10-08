@@ -20,6 +20,10 @@ def snapshot(screenshot=None) -> DesktopSnapshot:
 
 
 def mock(selections, captured, *, refuse=()):
+    return httpx.Client(transport=httpx.MockTransport(responder(selections, captured, refuse=refuse)))
+
+
+def responder(selections, captured, *, refuse=()):
     def respond(request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content)
         captured.append(body)
@@ -40,7 +44,7 @@ def mock(selections, captured, *, refuse=()):
                 "probabilities": probabilities, "confidence": 0.9,
             })
         return httpx.Response(200, json={"answers": answers})
-    return httpx.Client(transport=httpx.MockTransport(respond))
+    return respond
 
 
 def test_choice_policy_decides_through_openai() -> None:
@@ -130,3 +134,92 @@ def test_errors_report_only_the_structured_code() -> None:
     with pytest.raises(RuntimeError, match=r"HTTP 400 \(invalid_request_error\); no action executed") as error:
         transport.ask({}, {"q": {"type": "choice", "criteria": {"a": "A", "b": "B"}}})
     assert "secret page text" not in str(error.value)
+
+
+QUESTION = {"q": {"type": "choice", "criteria": {"a": "A", "b": "B"}}}
+
+
+def answer_a(request: httpx.Request) -> httpx.Response:
+    return httpx.Response(200, json={"answers": [{
+        "type": "choice", "name": "q", "choice": "a", "confidence": 0.9,
+        "probabilities": [{"value": "a", "probability": 0.95}, {"value": "b", "probability": 0.05}],
+    }]})
+
+
+def test_connection_errors_and_timeouts_are_retried(monkeypatch) -> None:
+    monkeypatch.setattr("arc_cua.policies.openai_decisions.time.sleep", lambda _: None)
+    calls = []
+
+    def respond(request):
+        calls.append(request)
+        if len(calls) == 1:
+            raise httpx.ReadTimeout("slow", request=request)
+        if len(calls) == 2:
+            return httpx.Response(504)
+        return answer_a(request)
+
+    transport = OpenAIDecisionsTransport(api_key="test", client=httpx.Client(transport=httpx.MockTransport(respond)))
+    assert transport.ask({}, QUESTION)["answers"]["q"]["choice"] == "a"
+    assert len(calls) == 3
+
+
+def test_retry_after_is_honoured(monkeypatch) -> None:
+    slept = []
+    monkeypatch.setattr("arc_cua.policies.openai_decisions.time.sleep", slept.append)
+    calls = []
+
+    def respond(request):
+        calls.append(request)
+        return httpx.Response(429, headers={"retry-after": "1.5"}) if len(calls) == 1 else answer_a(request)
+
+    transport = OpenAIDecisionsTransport(api_key="test", client=httpx.Client(transport=httpx.MockTransport(respond)))
+    transport.ask({}, QUESTION)
+    assert slept == [1.5]
+
+
+def test_errors_without_a_code_report_the_parameter() -> None:
+    def respond(request):
+        return httpx.Response(400, json={"error": {"code": None, "param": "questions[1].name", "message": "x"}})
+
+    transport = OpenAIDecisionsTransport(api_key="test", client=httpx.Client(transport=httpx.MockTransport(respond)))
+    with pytest.raises(RuntimeError, match=r"HTTP 400 \(param questions\[1\]\.name\)"):
+        transport.ask({}, QUESTION)
+
+
+def test_image_detail_is_sent_when_set() -> None:
+    captured = []
+
+    def respond(request):
+        captured.append(json.loads(request.content))
+        return answer_a(request)
+
+    client = httpx.Client(transport=httpx.MockTransport(respond))
+    OpenAIDecisionsTransport(api_key="test", client=client, image_detail="low").ask({}, QUESTION, images=(b"png",))
+    assert captured[0]["input"][0]["content"][1]["detail"] == "low"
+
+
+def test_warm_sends_a_minimal_decision() -> None:
+    captured = []
+
+    def respond(request):
+        captured.append(json.loads(request.content))
+        return httpx.Response(200, json={"answers": []})
+
+    OpenAIDecisionsTransport(api_key="test", client=httpx.Client(transport=httpx.MockTransport(respond))).warm()
+    assert [len(q["choices"]) for q in captured[0]["questions"]] == [2]
+
+
+def test_screenshot_check_refusal_overrides_the_text_answer() -> None:
+    text_answers = responder({"operation": "SUBTASK_COMPLETE", "verification_0": "SATISFIED"}, [])
+
+    def respond(request):
+        body = json.loads(request.content)
+        if body["input"][0]["content"][1:]:  # the screenshot check
+            return httpx.Response(200, json={"answers": [{"type": "refusal", "name": "verification_0"}]})
+        return text_answers(request)
+
+    transport = OpenAIDecisionsTransport(api_key="test", client=httpx.Client(transport=httpx.MockTransport(respond)))
+    with pytest.raises(InvalidChoiceResponse, match="refused question verification_0"):
+        ChoicePolicy(transport, screenshot_checks=True, invalid_retries=0).decide(
+            subtask=Subtask(goal="Review", verification=("Reviewed",)), snapshot=snapshot(lambda: b"png"), history=(),
+        )

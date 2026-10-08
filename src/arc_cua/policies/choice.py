@@ -132,7 +132,7 @@ class InvalidChoiceResponse(ValueError):
 
 
 class ChoicePolicy:
-    """Dynamic operation/target decision policy, modeled after jev-ultrafast's heads.
+    """Dynamic operation/target decision policy.
 
     One request asks for the operation and speculative operation-specific choices in
     parallel. Only the head selected by `operation` is consumed.
@@ -234,7 +234,12 @@ class ChoicePolicy:
                 if self.screenshot_checks and not self.screenshot_steps:
                     image_result, image_ms = self._verify_with_image(state, questions, subtask, snapshot)
                     result = {**result, "image_verification": image_result}
-                    answers = {**answers, **image_result.get("answers", {})}
+                    image_refused = set(image_result.get("refused", ()))
+                    refused |= image_refused
+                    answers = {
+                        **{k: v for k, v in answers.items() if k not in image_refused},
+                        **image_result.get("answers", {}),
+                    }
                     latency_ms += image_ms
                 unverified = []
                 for index, criterion in enumerate(subtask.verification):
@@ -311,7 +316,7 @@ class ChoicePolicy:
         # continuous numeric displacement is not a good JEV choice primitive. A
         # planner can expose named offsets as inputs in a future extension.
         if kind == ActionKind.DRAG_BY:
-            raise ValueError("DRAG_BY is not enabled by TypeSafeJevPolicy v0")
+            raise ValueError("DRAG_BY is not enabled by ChoicePolicy")
 
         return Decision(
             kind=kind,
