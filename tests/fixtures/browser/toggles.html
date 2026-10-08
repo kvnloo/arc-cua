@@ -1,0 +1,15 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Toggles</title></head>
+<body>
+<button aria-pressed="false" onclick="this.setAttribute('aria-pressed', this.getAttribute('aria-pressed') !== 'true')">Seat A1</button>
+<button aria-pressed="true">Seat A2</button>
+<nav><a href="#fri">Friday</a> <a href="#sat" aria-current="date">Saturday</a></nav>
+<div style="position: relative; display: inline-block; width: 120px; height: 32px">
+  <span>All Day</span>
+  <select aria-label="Time" style="position: absolute; inset: 0; opacity: 0">
+    <option value="all-day">All Day</option><option value="18:00">6:00 PM</option>
+  </select>
+</div>
+</body>
+</html>

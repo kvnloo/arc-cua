@@ -209,11 +209,28 @@ class ChromeBackend:
 
     # ---- navigation (for callers; not a model action) --------------------------
 
-    def navigate(self, url: str) -> None:
+    def navigate(self, url: str, *, quiet_s: float = 0.5) -> None:
+        """Open `url` and return once the page has rendered: the document has
+        loaded, the content it fetches has arrived, and the page has stayed
+        unchanged for `quiet_s` (at most `settle_timeout_s`)."""
+        self._action_started = time.monotonic()
         result = self._call("Page.navigate", {"url": url})
         if result.get("errorText"):
             raise RuntimeError(f"Navigation to {url} failed: {result['errorText']}")
         self._wait_loaded()
+        self._wait_quiet(quiet_s)
+
+    def _wait_quiet(self, quiet_s: float) -> None:
+        deadline = time.monotonic() + self.settle_timeout_s
+        last, since = None, time.monotonic()
+        while time.monotonic() < deadline:
+            probe = self.settle_probe()
+            now = time.monotonic()
+            if probe != last:
+                last, since = probe, now
+            elif probe[0] not in ("loading", "unavailable") and now - since >= quiet_s:
+                return
+            time.sleep(0.05)
 
     def _wait_loaded(self) -> None:
         deadline = time.monotonic() + self.load_timeout_s

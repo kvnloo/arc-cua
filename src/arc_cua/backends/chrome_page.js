@@ -24,6 +24,26 @@
     return id;
   };
 
+  // The element that scrolls the main content: the document, or, in pages that keep
+  // the document fixed and scroll an inner container (often inside a shadow root),
+  // the nearest scrollable ancestor of whatever is at the centre of the viewport.
+  const mainScroller = () => {
+    const doc = document.scrollingElement || document.documentElement;
+    if (doc.scrollHeight > TOP.innerHeight + 2) return doc;
+    const x = TOP.innerWidth / 2, y = TOP.innerHeight / 2;
+    let el = document.elementFromPoint(x, y);
+    while (el && el.shadowRoot) {
+      const inner = el.shadowRoot.elementFromPoint(x, y);
+      if (!inner || inner === el) break;
+      el = inner;
+    }
+    for (; el; el = el.assignedSlot || el.parentElement || el.getRootNode().host) {
+      const overflow = getComputedStyle(el).overflowY;
+      if ((overflow === "auto" || overflow === "scroll") && el.scrollHeight > el.clientHeight + 2) return el;
+    }
+    return doc;
+  };
+
   const nodeOf = (id) => {
     const el = state.nodes.get(id);
     if (!el || !el.isConnected) { state.nodes.delete(id); return null; }
@@ -146,11 +166,24 @@
 
   const shown = (el) => {
     if (el.closest("[aria-hidden='true'], [inert]")) return false;
+    let visible;
     if (el.checkVisibility) {
-      return el.checkVisibility({ opacityProperty: true, visibilityProperty: true, contentVisibilityAuto: true });
+      visible = el.checkVisibility({ opacityProperty: true, visibilityProperty: true, contentVisibilityAuto: true });
+    } else {
+      const style = getComputedStyle(el);
+      visible = style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity) > 0.05;
     }
-    const style = getComputedStyle(el);
-    return style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity) > 0.05;
+    return visible || transparentControl(el);
+  };
+
+  // A transparent native control laid over a styled label (a common custom
+  // dropdown) is still what a click there operates.
+  const transparentControl = (el) => {
+    if (!["select", "input", "textarea"].includes(el.localName)) return false;
+    if (el.checkVisibility && !el.checkVisibility({ visibilityProperty: true, contentVisibilityAuto: true })) return false;
+    const b = boxOf(el);
+    if (b.w < 4 || b.h < 4 || !inViewport(b)) return false;
+    return deepHit(b.x + b.w / 2, b.y + b.h / 2) === el;
   };
 
   // The deepest element at a top-level viewport point, through same-origin
@@ -232,6 +265,11 @@
     if (tag === "summary" && el.parentElement && el.parentElement.localName === "details") expanded = el.parentElement.open;
     let selected = aria("aria-selected");
     if (tag === "option") selected = el.selected;
+    // Toggle buttons report their state as pressed; the current item of a set
+    // (page, step, date) as aria-current.
+    if (selected === null) selected = aria("aria-pressed");
+    const current = el.getAttribute("aria-current");
+    if (selected === null && current && current !== "false") selected = true;
     const disabled = el.disabled === true || aria("aria-disabled") === true || Boolean(el.closest("fieldset:disabled"));
     return { value, expanded, selected, enabled: !disabled };
   };
@@ -400,13 +438,15 @@
         texts.push(rec);
       }
     }
-    const scroller = document.scrollingElement || document.documentElement;
+    const scroller = mainScroller();
+    const visibleHeight = scroller === (document.scrollingElement || document.documentElement)
+      ? TOP.innerHeight : scroller.clientHeight;
     return {
       url: location.href,
       title: document.title,
       viewport: [TOP.innerWidth, TOP.innerHeight],
       scroll: [Math.round(scroller.scrollLeft), Math.round(scroller.scrollTop)],
-      more_below: scroller.scrollTop + TOP.innerHeight < scroller.scrollHeight - 2,
+      more_below: scroller.scrollTop + visibleHeight < scroller.scrollHeight - 2,
       more_above: scroller.scrollTop > 2,
       elements: [...dialogs, ...interactive, ...texts],
       omitted: { interactive: skippedInteractive, text: skippedText },
@@ -479,7 +519,7 @@
 
   const probe = () => {
     const active = document.activeElement;
-    const scroller = document.scrollingElement || document.documentElement;
+    const scroller = mainScroller();
     return [
       location.href,
       document.readyState,

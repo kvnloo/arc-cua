@@ -1,0 +1,28 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Inner scroll</title>
+<style>
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+  app-content { display: block; height: 100%; }
+</style>
+</head>
+<body>
+<!-- The document never scrolls; a container inside a shadow root does, as in app-style pages. -->
+<app-content>
+  <h1>Showtimes</h1>
+  <div style="height: 2000px"></div>
+  <button id="late" onclick="this.textContent = 'Picked'">8:00 PM</button>
+</app-content>
+<script>
+  customElements.define("app-content", class extends HTMLElement {
+    constructor() {
+      super();
+      this.attachShadow({ mode: "open" }).innerHTML =
+        '<main style="height: 100%; overflow-y: auto"><slot></slot></main>';
+    }
+  });
+</script>
+</body>
+</html>

@@ -233,3 +233,33 @@ def test_changed_target_is_stale(page):
     with pytest.raises(StaleDesktopState):
         page.execute(snapshot, click)
     assert status(page) == ""
+
+
+def test_inner_scroll_container_reports_more_content_and_scrolls(chrome, site):
+    chrome.navigate(f"{site}/inner_scroll.html")
+    snapshot = chrome.observe()
+    assert snapshot.context["more_below"] is True
+    assert not [e for e in snapshot.elements if e.name == "8:00 PM" and e.actions]
+    run(chrome, [(ActionKind.SCROLL, None, {"scroll_direction": "DOWN"})] * 3)
+    after = chrome.observe()
+    assert after.context["scroll"][1] > 0
+    assert named(after, "8:00 PM").actions == (ActionKind.CLICK,)
+
+
+def test_pressed_and_current_states_are_reported_as_selected(chrome, site):
+    chrome.navigate(f"{site}/toggles.html")
+    snapshot = chrome.observe()
+    assert (named(snapshot, "Seat A1").selected, named(snapshot, "Seat A2").selected) == (False, True)
+    assert (named(snapshot, "Friday").selected, named(snapshot, "Saturday").selected) == (None, True)
+    run(chrome, [(ActionKind.CLICK, "Seat A1", {})])
+    assert named(chrome.observe(), "Seat A1").selected is True
+
+
+def test_transparent_select_over_a_label_is_operable(chrome, site):
+    chrome.navigate(f"{site}/toggles.html")
+    time_select = named(chrome.observe(), "Time")
+    assert (time_select.role, time_select.value) == ("combobox", "All Day")
+    assert time_select.actions == (ActionKind.SET_VALUE,)
+    run(chrome, [(ActionKind.SET_VALUE, "Time", {"input_key": "time"})], time="6:00 PM")
+    assert named(chrome.observe(), "Time").value == "6:00 PM"
+
