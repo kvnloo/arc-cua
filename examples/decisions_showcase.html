@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>arc-cua · Decisions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0b; --card: #131316; --line: #24242a; --text: #f2f2f3; --dim: #8b8b94; --faint: #55555d;
+    --accent: #10a37f; --accent-soft: rgba(16, 163, 127, .16); --bad: #ef5a5a; --bar: #2a2a31;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg); color: var(--text); font: 14px/1.4 Inter, system-ui, sans-serif;
+    padding: 22px 22px 18px; display: flex; flex-direction: column; gap: 16px; overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono { font-family: "JetBrains Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+  header .brand { font-weight: 700; font-size: 22px; letter-spacing: -.02em; }
+  header .brand span { color: var(--dim); font-weight: 500; }
+  header .sub { color: var(--dim); margin-top: 4px; display: flex; gap: 8px; align-items: center; }
+  .chip { border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; font-size: 12px; color: var(--text); }
+  .live { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); display: inline-block; }
+  .live.on { background: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); animation: pulse 1.4s infinite; }
+  @keyframes pulse { 50% { box-shadow: 0 0 0 7px transparent; } }
+
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 11px; }
+  .stat b { display: block; font-size: 19px; font-weight: 500; letter-spacing: -.02em; }
+  .stat small { color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+
+  .job small { color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+  .job div { font-size: 18px; font-weight: 600; letter-spacing: -.01em; margin-top: 2px; }
+  .tasks { display: flex; flex-direction: column; gap: 6px; }
+  .task { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 10px;
+          border: 1px solid var(--line); background: var(--card); color: var(--dim); transition: all .25s; }
+  .task.running { color: var(--text); border-color: var(--accent); }
+  .task.verified, .task.failed { color: var(--text); }
+  .task .dot { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--faint); flex: none;
+               display: grid; place-items: center; font-size: 11px; font-weight: 700; }
+  .task.running .dot { border-color: var(--accent); border-top-color: transparent; animation: spin .8s linear infinite; }
+  .task.verified .dot { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .task.failed .dot { background: var(--bad); border-color: var(--bad); color: #fff; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .task .title { flex: 1; font-weight: 500; }
+  .task .meta { font-size: 12px; color: var(--dim); }
+  .task.verified .meta { color: var(--accent); }
+
+  .decision { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px;
+              display: flex; flex-direction: column; gap: 14px; }
+  .decision .goal { color: var(--dim); font-size: 13px; }
+  .decision .head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .decision .action { font-size: 26px; font-weight: 700; letter-spacing: -.02em; }
+  .decision .target { font-size: 16px; color: var(--text); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .decision .value { color: var(--accent); }
+  .decision .facts { display: flex; gap: 6px; flex-wrap: wrap; }
+  .flash { animation: flash .5s ease-out; }
+  @keyframes flash { from { background: var(--accent-soft); } }
+  .dist h4 { font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: .06em; font-weight: 500; margin-bottom: 6px; }
+  .row { display: grid; grid-template-columns: 1fr 52px; gap: 8px; align-items: center; margin-bottom: 5px; }
+  .bar { position: relative; height: 24px; border-radius: 6px; background: var(--bar); overflow: hidden; }
+  .bar i { position: absolute; inset: 0 auto 0 0; background: #3a3a44; border-radius: 6px; transition: width .3s ease; }
+  .row.top .bar i { background: var(--accent); }
+  .bar span { position: relative; padding: 0 9px; line-height: 24px; font-size: 12.5px; white-space: nowrap;
+              overflow: hidden; text-overflow: ellipsis; display: block; }
+  .row .p { text-align: right; font-size: 12.5px; color: var(--dim); }
+  .row.top .p { color: var(--text); }
+
+  .feed { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 4px;
+          mask-image: linear-gradient(#000 70%, transparent); }
+  .feed .step { display: grid; grid-template-columns: 46px 112px 1fr 56px; gap: 8px; font-size: 12.5px;
+                color: var(--dim); padding: 3px 2px; }
+  .feed .step:first-child { color: var(--text); }
+  .feed .step .t { color: var(--faint); }
+  .feed .step .tg { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .feed .step .ms { text-align: right; }
+  .idle { color: var(--dim); text-align: center; padding: 28px 0; }
+</style>
+</head>
+<body>
+  <header>
+    <div class="brand">arc-cua <span>× Decisions API</span></div>
+    <div class="sub"><span class="live" id="live"></span><span>Every action chosen by</span><span class="chip mono" id="model">gpt-6-luna</span></div>
+  </header>
+
+  <section class="stats">
+    <div class="stat"><b class="mono" id="s-dec">0</b><small>Decisions</small></div>
+    <div class="stat"><b class="mono" id="s-lat">–</b><small>Median</small></div>
+    <div class="stat"><b class="mono" id="s-tok">0</b><small>Tokens</small></div>
+    <div class="stat"><b class="mono" id="s-cost">$0</b><small>Cost</small></div>
+  </section>
+
+  <section class="job"><small>Job</small><div id="job"></div></section>
+  <section class="tasks" id="tasks"></section>
+  <section class="decision" id="decision"><div class="idle">Waiting for the first decision…</div></section>
+  <section class="feed" id="feed"></section>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const pct = (p) => `${Math.round(p * 100)}%`;
+const LABELS = { TYPE_TEXT: "Type", CLICK: "Click", SCROLL: "Scroll", PRESS_KEY: "Press", HOTKEY: "Hotkey",
+  SET_VALUE: "Set", DOUBLE_CLICK: "Double-click", RIGHT_CLICK: "Right-click", DRAG_TO: "Drag", DRAG_BY: "Drag",
+  WAIT: "Wait", SUBTASK_COMPLETE: "Done", NEEDS_AGENT: "Hand back", BLOCKED: "Blocked" };
+const label = (a) => LABELS[a] || a.replace(/_/g, " ").toLowerCase().replace(/^./, (c) => c.toUpperCase());
+
+function bars(title, rows) {
+  if (!rows || !rows.length) return "";
+  return `<div class="dist"><h4>${esc(title)}</h4>${rows.map(([name, p], i) => `
+    <div class="row ${i === 0 ? "top" : ""}"><div class="bar"><i style="width:${Math.max(p * 100, 1.5)}%"></i>
+    <span>${esc(name)}</span></div><div class="p mono">${pct(p)}</div></div>`).join("")}</div>`;
+}
+
+let last = "", lastStepKey = "";
+async function tick() {
+  try {
+    const text = await (await fetch("/state", { cache: "no-store" })).text();
+    if (text !== last) { last = text; render(JSON.parse(text)); }
+  } catch (e) { /* the run has ended */ }
+  setTimeout(tick, 120);
+}
+
+function render(s) {
+  $("model").textContent = s.model;
+  $("job").textContent = s.job || "";
+  $("live").classList.toggle("on", s.phase === "running");
+  const sum = s.summary || {};
+  $("s-dec").textContent = sum.decisions ?? 0;
+  $("s-lat").textContent = sum.median_ms ? `${sum.median_ms} ms` : "–";
+  $("s-tok").textContent = (sum.tokens ?? 0).toLocaleString();
+  $("s-cost").textContent = sum.cost ? `$${sum.cost < 0.01 ? sum.cost.toFixed(4) : sum.cost.toFixed(3)}` : "$0";
+
+  $("tasks").innerHTML = s.tasks.map((t) => `
+    <div class="task ${t.status}"><div class="dot">${t.status === "verified" ? "✓" : t.status === "failed" ? "✕" : ""}</div>
+    <div class="title">${esc(t.title)}</div>
+    <div class="meta mono">${t.status === "verified" ? `verified · ${t.elapsed}s`
+      : t.status === "failed" ? `not verified · ${t.elapsed}s` : t.status === "running" ? `${t.steps.length} steps` : ""}</div></div>`).join("");
+
+  const task = s.current != null ? s.tasks[s.current] : null;
+  const steps = task ? task.steps : [];
+  const step = steps[steps.length - 1];
+  const key = `${s.current}:${steps.length}`;
+  if (!task) {
+    $("decision").innerHTML = `<div class="idle">${s.phase === "done" ? "All tasks finished." : "Waiting for the first decision…"}</div>`;
+  } else if (!step) {
+    $("decision").innerHTML = `<div class="goal">${esc(task.goal)}</div><div class="idle">Observing the page…</div>`;
+  } else if (key !== lastStepKey) {
+    const value = step.value ? ` <span class="value">“${esc(step.value)}”</span>` : "";
+    const detail = step.detail ? ` <span class="value">${esc(step.detail)}</span>` : "";
+    $("decision").innerHTML = `
+      <div class="goal">${esc(task.goal)}</div>
+      <div class="head"><div class="action">${esc(label(step.action))}</div>
+        <div class="target">${esc(step.target || "")}${value}${detail}</div></div>
+      <div class="facts"><span class="chip mono">${step.latency_ms ?? "–"} ms</span>
+        <span class="chip mono">confidence ${step.confidence != null ? pct(step.confidence) : "–"}</span>
+        <span class="chip mono">step ${steps.length}</span></div>
+      ${bars("Operation", (step.operation || []).map(([a, p]) => [label(a), p]))}
+      ${bars("Target", step.targets)}`;
+    $("decision").classList.remove("flash"); void $("decision").offsetWidth; $("decision").classList.add("flash");
+  }
+  lastStepKey = key;
+
+  $("feed").innerHTML = steps.slice().reverse().map((st) => `
+    <div class="step mono"><span class="t">${st.at.toFixed(1)}s</span><span>${esc(label(st.action))}</span>
+    <span class="tg">${esc(st.target || st.value || st.detail || "")}</span><span class="ms">${st.latency_ms ?? ""} ms</span></div>`).join("");
+}
+tick();
+</script>
+</body>
+</html>
