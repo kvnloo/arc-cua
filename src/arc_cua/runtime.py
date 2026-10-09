@@ -20,7 +20,7 @@ from .models import (
     TerminalKind,
 )
 from .protocols import DecisionPolicy, DesktopBackend
-from .safety import RISKY_KINDS, disallowed_risks, redact
+from .safety import RISKY_KINDS, disallowed_element_risks, redact
 from .settling import SettleTiming, wait_for_quiet
 from .settling import snapshot_signature as _structural_signature
 from .validation import materialize_action
@@ -490,7 +490,7 @@ def _risk_refusal(decision: Decision, snapshot: DesktopSnapshot, subtask: Subtas
         target = snapshot.element(decision.target_id)
     except KeyError:
         return None
-    risks = disallowed_risks(target.name, subtask.allowed_risks)
+    risks = disallowed_element_risks(target, subtask.allowed_risks)
     if not risks:
         return None
     return (

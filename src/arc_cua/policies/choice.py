@@ -27,7 +27,7 @@ from ..models import (
     TerminalKind,
     summarize_history,
 )
-from ..safety import RISKY_KINDS, SECRET_PLACEHOLDER, disallowed_risks, redact
+from ..safety import RISKY_KINDS, SECRET_PLACEHOLDER, disallowed_element_risks, redact
 
 POLICY_RULES = """Execute the supplied desktop subtask using exactly one next operation.
 
@@ -340,7 +340,7 @@ class ChoicePolicy:
                 if kind == ActionKind.DRAG_BY:
                     continue
                 # Consequential controls are offered only when the subtask allows that risk.
-                if kind in RISKY_KINDS and disallowed_risks(element.name, subtask.allowed_risks):
+                if kind in RISKY_KINDS and disallowed_element_risks(element, subtask.allowed_risks):
                     continue
                 if kind == ActionKind.SET_VALUE and not any(
                     _value_type_matches(element, value) for value in subtask.inputs.values()
