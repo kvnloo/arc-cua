@@ -1,14 +1,17 @@
 """Consequential-control detection and secret redaction.
 
-Risky controls are recognized by whole words in their label. A subtask opts into a
-category with `Subtask.allowed_risks`; otherwise such controls are not offered to
+Risky controls are recognized by label words and structured window-control metadata.
+A subtask opts into a category with `Subtask.allowed_risks`; otherwise such controls are not offered to
 the decision model and the runtime refuses to activate them.
 """
 
 from __future__ import annotations
 
 import re
-from typing import Any, Iterable
+from typing import TYPE_CHECKING, Any, Iterable
+
+if TYPE_CHECKING:
+    from .models import DesktopElement
 
 RISK_PHRASES: dict[str, tuple[str, ...]] = {
     "delete": ("delete", "remove", "erase", "trash", "discard", "clear all", "empty trash", "permanently"),
@@ -41,6 +44,20 @@ def risks_of(label: str) -> set[str]:
 
 def disallowed_risks(label: str, allowed: Iterable[str]) -> set[str]:
     return risks_of(label) - set(allowed)
+
+
+def element_risks(element: DesktopElement) -> set[str]:
+    """Combine label risks with backend-supplied control semantics."""
+    risks = risks_of(element.name)
+    # Native title-bar close buttons can be unlabeled (or localized).
+    # Add this risk; do not let metadata erase another risk in the label.
+    if element.metadata.get("window_control") == "close":
+        risks.add("close")
+    return risks
+
+
+def disallowed_element_risks(element: DesktopElement, allowed: Iterable[str]) -> set[str]:
+    return element_risks(element) - set(allowed)
 
 
 def redact(value: Any, secrets: Iterable[str]) -> Any:
